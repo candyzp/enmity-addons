@@ -5,6 +5,7 @@ import { useMemo } from 'react';
 import { View } from 'react-native';
 
 import {
+  ownClientStatus,
   resolveDeviceStatuses,
   type DeviceStatus,
 } from '~/lib/devices';
@@ -13,10 +14,15 @@ type PresenceStoreShape = FluxStore & {
   getClientStatus?: (userId: string) => unknown;
 };
 
+type SessionsStoreShape = FluxStore & {
+  getSessions?: () => unknown;
+};
+
+type UserStoreShape = FluxStore & {
+  getCurrentUser?: () => { id?: string } | null;
+};
+
 type AvatarProps = {
-  status?: string;
-  isMobileOnline?: boolean;
-  isVROnline?: boolean;
   user?: { id?: string };
 } & AnyProps;
 
@@ -26,6 +32,8 @@ type RenderTarget = {
 };
 
 const PresenceStore = flux.getStore('Presence') as PresenceStoreShape;
+const SessionsStore = flux.getStore('Sessions') as SessionsStoreShape;
+const UserStore = flux.getStore('User') as UserStoreShape;
 
 const ICONS = {
   mobile: {
@@ -61,10 +69,22 @@ function findRenderTarget(owner: AnyProps, key = 'default'): RenderTarget | null
   return typeof current === 'function' ? { holder, key: prop } : null;
 }
 
+/**
+ * Discord does not publish the signed-in user's presence through PresenceStore.
+ * Read that user's active sessions instead, as Unbound's Platform Indicators does.
+ */
+function getClientStatus(userId: string): unknown {
+  if (userId === UserStore.getCurrentUser?.()?.id) {
+    return ownClientStatus(SessionsStore.getSessions?.());
+  }
+
+  return PresenceStore.getClientStatus?.(userId);
+}
+
 function useDeviceStatuses(userId: string): DeviceStatus[] {
   const key = flux.useStore(
-    [PresenceStore],
-    () => JSON.stringify(resolveDeviceStatuses(PresenceStore.getClientStatus?.(userId))),
+    [PresenceStore, SessionsStore],
+    () => JSON.stringify(resolveDeviceStatuses(getClientStatus(userId))),
     { deps: [userId] },
   );
 
@@ -129,9 +149,9 @@ function DeviceBadges({ userId }: { userId: string }) {
 }
 
 /**
- * Replaces Discord's avatar status dot only when a phone or desktop session is
- * explicitly present. When the session data is absent or unsupported, the
- * original Avatar render path is returned untouched.
+ * Adds device badges without changing Discord's status props. This keeps the
+ * original online/idle/DND/offline indicator intact if badges cannot render.
+ * DeviceBadges always mounts so it can subscribe before presence arrives.
  */
 export function patchAvatarDeviceStatus(): void {
   if (typeof PresenceStore?.getClientStatus !== 'function') {
@@ -152,31 +172,17 @@ export function patchAvatarDeviceStatus(): void {
   }
 
   patcher.instead(render.holder, render.key, ({ args, original, this: self }) => {
-    const [props, ...rest] = args as [AvatarProps | undefined, ...unknown[]];
+    const [props] = args as [AvatarProps | undefined];
     const userId = props?.user?.id;
 
     if (typeof userId !== 'string' || !userId) {
       return original.apply(self, args);
     }
 
-    const devices = resolveDeviceStatuses(PresenceStore.getClientStatus(userId));
-
-    if (!devices.length) {
-      return original.apply(self, args);
-    }
-
-    const avatar = original.apply(self, [
-      {
-        ...props,
-        status: undefined,
-        isMobileOnline: false,
-        isVROnline: false,
-      },
-      ...rest,
-    ]);
+    const avatar = original.apply(self, args);
 
     return (
-      <View style={{ alignSelf: 'flex-start', position: 'relative' }}>
+      <View style={{ alignSelf: 'flex-start', position: 'relative' }} pointerEvents='box-none'>
         {avatar}
         <DeviceBadges userId={userId} />
       </View>
