@@ -28,5 +28,7 @@ describe('resolveDeviceStatuses', () => {
     expect(resolveDeviceStatuses(undefined)).toEqual([]);
     expect(resolveDeviceStatuses('online')).toEqual([]);
     expect(resolveDeviceStatuses({ mobile: 'offline', desktop: 'unknown' })).toEqual([]);
+    expect(resolveDeviceStatuses({ mobile: 'unknown', desktop: 'offline' })).toEqual([]);
+    expect(resolveDeviceStatuses({ mobile: 'invisible' })).toEqual([]);
   });
 });

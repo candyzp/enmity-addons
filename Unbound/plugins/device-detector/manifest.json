@@ -1,7 +1,7 @@
 {
   "id": "candyzp.device-detector",
   "name": "Device Detector",
-  "description": "Shows a status-colored phone or PC badge on user avatars when Discord exposes that device's presence. Falls back to Discord's normal status indicator when device information is unavailable.",
+  "description": "Shows status-colored phone and PC avatar badges when session data is available; otherwise keeps Discord's normal status indicator.",
   "authors": [
     {
       "name": "candyzp"

@@ -1,3 +1,6 @@
+---
+---
+
 ## What it does
 
 - Shows a small **phone** or **PC** symbol at the avatar's status indicator.
