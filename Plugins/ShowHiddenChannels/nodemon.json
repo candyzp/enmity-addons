@@ -1,8 +1,0 @@
-{
-   "ignore": [
-      "dist/*",
-      "dist"
-   ],
-   "exec": "rollup -c --configPlugin esbuild",
-   "ext": "*.*"
-}

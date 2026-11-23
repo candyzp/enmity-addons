@@ -1,0 +1,34 @@
+name: Build Unbound Device Detector
+
+on:
+  push:
+    branches: [device-detector-unbound]
+    paths:
+      - 'Unbound/**'
+      - '.github/workflows/build-unbound.yml'
+  pull_request:
+    paths:
+      - 'Unbound/**'
+      - '.github/workflows/build-unbound.yml'
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - name: Install workspace
+        working-directory: Unbound
+        run: bun install
+      - name: Test device mapping
+        working-directory: Unbound
+        run: bun --filter device-detector test
+      - name: Build addon
+        working-directory: Unbound
+        run: bun run build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: device-detector-unbound
+          path: Unbound/dist
+          if-no-files-found: error
