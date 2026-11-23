@@ -1,7 +1,7 @@
 import type { AnyProps } from '@unbound-app/api/metro';
 import type { FluxStore } from '@unbound-app/api/flux';
 import { flux, metro, patcher } from '@unbound-app/api';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { View } from 'react-native';
 
 import {
@@ -24,11 +24,16 @@ type UserStoreShape = FluxStore & {
 
 type AvatarProps = {
   user?: { id?: string };
+  status?: string;
 } & AnyProps;
 
 type RenderTarget = {
   holder: AnyProps;
   key: string;
+};
+
+type OriginalRender = {
+  apply(thisArg: unknown, args: unknown[]): ReactNode;
 };
 
 const PresenceStore = flux.getStore('Presence') as PresenceStoreShape;
@@ -39,14 +44,14 @@ const ICONS = {
   mobile: {
     path: 'M 187 0 L 813 0 C 916.277 0 1000 83.723 1000 187 L 1000 1313 C 1000 1416.277 916.277 1500 813 1500 L 187 1500 C 83.723 1500 0 1416.277 0 1313 L 0 187 C 0 83.723 83.723 0 187 0 Z M 125 1000 L 875 1000 L 875 250 L 125 250 Z M 500 1125 C 430.964 1125 375 1180.964 375 1250 C 375 1319.036 430.964 1375 500 1375 C 569.036 1375 625 1319.036 625 1250 C 625 1180.964 569.036 1125 500 1125 Z',
     viewBox: '0 0 1000 1500',
-    width: 7,
-    height: 10,
+    width: 11,
+    height: 16,
   },
   desktop: {
     path: 'M4 2.5c-1.103 0-2 .897-2 2v11c0 1.104.897 2 2 2h7v2H7v2h10v-2h-4v-2h7c1.103 0 2-.896 2-2v-11c0-1.103-.897-2-2-2H4Zm16 2v9H4v-9h16Z',
     viewBox: '0 0 24 24',
-    width: 10,
-    height: 10,
+    width: 16,
+    height: 16,
   },
 } as const;
 
@@ -71,7 +76,7 @@ function findRenderTarget(owner: AnyProps, key = 'default'): RenderTarget | null
 
 /**
  * Discord does not publish the signed-in user's presence through PresenceStore.
- * Read that user's active sessions instead, as Unbound's Platform Indicators does.
+ * Read that user's active sessions instead, matching Unbound's Platform Indicators addon.
  */
 function getClientStatus(userId: string): unknown {
   if (userId === UserStore.getCurrentUser?.()?.id) {
@@ -98,63 +103,94 @@ function useDeviceStatuses(userId: string): DeviceStatus[] {
   }, [key]);
 }
 
-function DeviceBadge({ device }: { device: DeviceStatus }) {
+function DeviceIcon({ device }: { device: DeviceStatus }) {
   const { Svg, Path } = metro.common.SVG;
   const icon = ICONS[device.platform];
 
   return (
-    <View
-      style={{
-        width: 16,
-        height: 16,
-        borderRadius: 8,
-        alignItems: 'center',
-        justifyContent: 'center',
-        backgroundColor: device.color,
-        borderWidth: 1,
-        borderColor: '#1e1f22',
-      }}
+    <Svg
+      width={icon.width}
+      height={icon.height}
+      viewBox={icon.viewBox}
+      fill={device.color}
     >
-      <Svg width={icon.width} height={icon.height} viewBox={icon.viewBox}>
-        <Path d={icon.path} fill='#ffffff' />
-      </Svg>
-    </View>
+      <Path d={icon.path} />
+    </Svg>
   );
 }
 
-function DeviceBadges({ userId }: { userId: string }) {
-  const devices = useDeviceStatuses(userId);
-
+function DeviceBadges({ devices }: { devices: DeviceStatus[] }) {
   if (!devices.length) return null;
 
   return (
+    // The square anchor matches the avatar image. Discord's Avatar wrapper can be wider
+    // than the image because its native status dot sits outside the picture.
     <View
       pointerEvents='none'
       style={{
         position: 'absolute',
-        right: -4,
-        bottom: -4,
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 2,
-        padding: 2,
-        borderRadius: 12,
-        backgroundColor: '#1e1f22',
-        borderWidth: 1,
-        borderColor: '#404249',
+        top: 0,
+        left: 0,
+        bottom: 0,
+        aspectRatio: 1,
       }}
     >
-      {devices.map((device) => (
-        <DeviceBadge key={device.platform} device={device} />
-      ))}
+      <View
+        style={{
+          position: 'absolute',
+          right: -4,
+          bottom: -4,
+          flexDirection: 'row',
+          alignItems: 'center',
+          gap: 2,
+        }}
+      >
+        {devices.map((device) => (
+          <DeviceIcon key={device.platform} device={device} />
+        ))}
+      </View>
+    </View>
+  );
+}
+
+type PatchedAvatarProps = {
+  avatarProps: AvatarProps;
+  rest: unknown[];
+  original: OriginalRender;
+  self: unknown;
+  userId: string;
+};
+
+/**
+ * Suppresses Discord's native status dot only while a known-device badge replaces it.
+ * If device data is missing, Discord's original status (including offline/invisible) stays intact.
+ */
+function PatchedAvatar({
+  avatarProps,
+  rest,
+  original,
+  self,
+  userId,
+}: PatchedAvatarProps) {
+  const devices = useDeviceStatuses(userId);
+  const nextProps = devices.length
+    ? { ...avatarProps, status: undefined }
+    : avatarProps;
+  const avatar = original.apply(self, [nextProps, ...rest]);
+
+  return (
+    <View
+      style={{ alignSelf: 'flex-start', position: 'relative' }}
+      pointerEvents='box-none'
+    >
+      {avatar}
+      <DeviceBadges devices={devices} />
     </View>
   );
 }
 
 /**
- * Adds an opaque, status-colored device badge over the native status dot.
- * The opaque backing masks the original dot without changing Discord presence.
- * DeviceBadges always mounts so it can subscribe before presence arrives.
+ * Shows each active phone/PC session in its own presence color at the native status location.
  */
 export function patchAvatarDeviceStatus(): void {
   if (typeof PresenceStore?.getClientStatus !== 'function') {
@@ -175,20 +211,21 @@ export function patchAvatarDeviceStatus(): void {
   }
 
   patcher.instead(render.holder, render.key, ({ args, original, this: self }) => {
-    const [props] = args as [AvatarProps | undefined];
+    const [props, ...rest] = args as [AvatarProps | undefined, ...unknown[]];
     const userId = props?.user?.id;
 
     if (typeof userId !== 'string' || !userId) {
       return original.apply(self, args);
     }
 
-    const avatar = original.apply(self, args);
-
     return (
-      <View style={{ alignSelf: 'flex-start', position: 'relative' }} pointerEvents='box-none'>
-        {avatar}
-        <DeviceBadges userId={userId} />
-      </View>
+      <PatchedAvatar
+        avatarProps={props}
+        rest={rest}
+        original={original as OriginalRender}
+        self={self}
+        userId={userId}
+      />
     );
   });
 }
