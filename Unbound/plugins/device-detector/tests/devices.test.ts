@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { resolveDeviceStatuses } from '~/lib/devices';
+import { ownClientStatus, resolveDeviceStatuses } from '~/lib/devices';
 
 describe('resolveDeviceStatuses', () => {
   test('maps mobile and desktop sessions independently', () => {
@@ -30,5 +30,46 @@ describe('resolveDeviceStatuses', () => {
     expect(resolveDeviceStatuses({ mobile: 'offline', desktop: 'unknown' })).toEqual([]);
     expect(resolveDeviceStatuses({ mobile: 'unknown', desktop: 'offline' })).toEqual([]);
     expect(resolveDeviceStatuses({ mobile: 'invisible' })).toEqual([]);
+  });
+});
+
+describe('ownClientStatus', () => {
+  test('reads mobile and desktop clients from active Discord sessions', () => {
+    expect(ownClientStatus({
+      mobileSession: {
+        status: 'idle',
+        clientInfo: { client: 'mobile' },
+      },
+      desktopSession: {
+        status: 'online',
+        clientInfo: { client: 'desktop' },
+      },
+    })).toEqual({
+      mobile: 'idle',
+      desktop: 'online',
+    });
+  });
+
+  test('keeps the most active status when the same client has multiple sessions', () => {
+    expect(ownClientStatus({
+      idleDesktop: {
+        status: 'idle',
+        clientInfo: { client: 'desktop' },
+      },
+      onlineDesktop: {
+        status: 'online',
+        clientInfo: { client: 'desktop' },
+      },
+    })).toEqual({ desktop: 'online' });
+  });
+
+  test('uses Unbound’s mobile fallback for a readable but empty sessions object', () => {
+    expect(ownClientStatus({})).toEqual({ mobile: 'online' });
+  });
+
+  test('rejects missing or invalid session data', () => {
+    expect(ownClientStatus(null)).toBeNull();
+    expect(ownClientStatus(undefined)).toBeNull();
+    expect(ownClientStatus([])).toBeNull();
   });
 });
