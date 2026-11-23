@@ -79,3 +79,11 @@ export function resolveDeviceStatuses(value: unknown): DeviceStatus[] {
     }];
   });
 }
+
+/**
+ * Only decorate an avatar when Discord itself reports an active presence.
+ * This avoids showing a device glyph during temporary startup/unknown states.
+ */
+export function isActiveDiscordStatus(status: unknown): status is DevicePresence {
+  return status === 'online' || status === 'idle' || status === 'dnd';
+}
