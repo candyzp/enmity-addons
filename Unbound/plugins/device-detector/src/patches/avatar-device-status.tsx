@@ -1,4 +1,5 @@
 import type { AnyProps } from '@unbound-app/api/metro';
+import type { FluxStore } from '@unbound-app/api/flux';
 import { flux, metro, patcher } from '@unbound-app/api';
 import { useMemo } from 'react';
 import { View } from 'react-native';
@@ -8,7 +9,7 @@ import {
   type DeviceStatus,
 } from '~/lib/devices';
 
-type PresenceStoreShape = {
+type PresenceStoreShape = FluxStore & {
   getClientStatus?: (userId: string) => unknown;
 };
 
@@ -24,7 +25,7 @@ type RenderTarget = {
   key: string;
 };
 
-const PresenceStore = flux.getStore('Presence') as unknown as PresenceStoreShape;
+const PresenceStore = flux.getStore('Presence') as PresenceStoreShape;
 
 const ICONS = {
   mobile: {
