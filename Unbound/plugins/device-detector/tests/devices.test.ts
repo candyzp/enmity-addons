@@ -1,6 +1,6 @@
 import { describe, expect, test } from 'bun:test';
 
-import { ownClientStatus, resolveDeviceStatuses } from '~/lib/devices';
+import { isActiveDiscordStatus, ownClientStatus, resolveDeviceStatuses } from '~/lib/devices';
 
 describe('resolveDeviceStatuses', () => {
   test('maps mobile and desktop sessions independently', () => {
@@ -71,5 +71,20 @@ describe('ownClientStatus', () => {
     expect(ownClientStatus(null)).toBeNull();
     expect(ownClientStatus(undefined)).toBeNull();
     expect(ownClientStatus([])).toBeNull();
+  });
+});
+
+describe('isActiveDiscordStatus', () => {
+  test('allows known active Discord presence states', () => {
+    expect(isActiveDiscordStatus('online')).toBe(true);
+    expect(isActiveDiscordStatus('idle')).toBe(true);
+    expect(isActiveDiscordStatus('dnd')).toBe(true);
+  });
+
+  test('does not decorate offline or unavailable states', () => {
+    expect(isActiveDiscordStatus('offline')).toBe(false);
+    expect(isActiveDiscordStatus('invisible')).toBe(false);
+    expect(isActiveDiscordStatus(undefined)).toBe(false);
+    expect(isActiveDiscordStatus(null)).toBe(false);
   });
 });
