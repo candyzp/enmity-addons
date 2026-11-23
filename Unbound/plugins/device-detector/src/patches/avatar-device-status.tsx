@@ -105,18 +105,18 @@ function DeviceBadge({ device }: { device: DeviceStatus }) {
   return (
     <View
       style={{
-        width: 15,
-        height: 15,
+        width: 16,
+        height: 16,
         borderRadius: 8,
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#1e1f22',
+        backgroundColor: device.color,
         borderWidth: 1,
-        borderColor: '#404249',
+        borderColor: '#1e1f22',
       }}
     >
-      <Svg width={icon.width} height={icon.height} viewBox={icon.viewBox} fill={device.color}>
-        <Path d={icon.path} />
+      <Svg width={icon.width} height={icon.height} viewBox={icon.viewBox}>
+        <Path d={icon.path} fill='#ffffff' />
       </Svg>
     </View>
   );
@@ -136,9 +136,12 @@ function DeviceBadges({ userId }: { userId: string }) {
         bottom: -4,
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 1,
-        padding: 1,
-        borderRadius: 9,
+        gap: 2,
+        padding: 2,
+        borderRadius: 12,
+        backgroundColor: '#1e1f22',
+        borderWidth: 1,
+        borderColor: '#404249',
       }}
     >
       {devices.map((device) => (
@@ -149,8 +152,8 @@ function DeviceBadges({ userId }: { userId: string }) {
 }
 
 /**
- * Adds device badges without changing Discord's status props. This keeps the
- * original online/idle/DND/offline indicator intact if badges cannot render.
+ * Adds an opaque, status-colored device badge over the native status dot.
+ * The opaque backing masks the original dot without changing Discord presence.
  * DeviceBadges always mounts so it can subscribe before presence arrives.
  */
 export function patchAvatarDeviceStatus(): void {
