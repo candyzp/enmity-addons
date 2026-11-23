@@ -1,7 +1,7 @@
 import type { AnyProps } from '@unbound-app/api/metro';
 import type { FluxStore } from '@unbound-app/api/flux';
 import { flux, metro, patcher } from '@unbound-app/api';
-import { useMemo } from 'react';
+import { useMemo, type ReactNode } from 'react';
 import { View } from 'react-native';
 
 import {
@@ -34,7 +34,7 @@ type RenderTarget = {
 };
 
 type OriginalRender = {
-  apply(thisArg: unknown, args: unknown[]): React.ReactNode;
+  apply(thisArg: unknown, args: unknown[]): ReactNode;
 };
 
 const PresenceStore = flux.getStore('Presence') as PresenceStoreShape;
